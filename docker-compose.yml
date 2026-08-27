@@ -1,0 +1,37 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio-server
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API S3 (dipakai aplikasi)
+      - "9001:9001"   # Web Console MinIO
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: spring-boot-minio-app
+    ports:
+      - "4444:4444"   # REST API + Swagger UI
+    environment:
+      # Di dalam docker, app menghubungi minio lewat nama service "minio"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: files
+      MINIO_REGION: us-east-1
+    depends_on:
+      minio:
+        condition: service_healthy
+
+volumes:
+  minio-data:
